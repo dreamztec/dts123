@@ -1,5 +1,5 @@
 import { db } from './index.js'
-import { cities, membershipBenefits, membershipPlans, vehicleClasses, vehicles } from './schema.js'
+import { cities, membershipBenefits, membershipPlans, pricingRules, vehicleClasses, vehicles } from './schema.js'
 
 if (process.env.DTS_DEMO_MODE !== 'true') throw new Error('Refusing to seed unless DTS_DEMO_MODE=true')
 
@@ -22,4 +22,22 @@ await db.insert(vehicles).values([
 ])
 const plans=await db.insert(membershipPlans).values(['ACCESS','EXECUTIVE','SIGNATURE','ROYALE'].map((code,index) => ({code,name:`Dreamz ${code[0]+code.slice(1).toLowerCase()}`,description:'Demo configuration — replace before production',displayOrder:index}))).returning()
 await db.insert(membershipBenefits).values(plans.map((plan) => ({planId:plan.id,benefitKey:'priority_level',label:'Booking priority',value:{level:plan.displayOrder+1,demo:true}})))
+
+// Metered pricing rules per city and vehicle class. Without these the estimate endpoint can
+// resolve a route but finds no configured fare, so journeys would show "pricing not available".
+const classId = Object.fromEntries(classes.map((item) => [item.code, item.id]))
+const cityId = Object.fromEntries([[abuja.name, abuja.id], [lagos.name, lagos.id]])
+const metered = (baseFare:number, perKm:number, perMinute:number, minimumFare:number) => ({ baseFare, perKm, perMinute, minimumFare })
+await db.insert(pricingRules).values([
+  { name:'Abuja CITY metered', cityId:cityId['Abuja'], vehicleClassId:classId.CITY, pricingType:'METERED', priority:10, calculation:metered(1500, 280, 25, 2500), conditions:{ serviceType:'IMMEDIATE' } },
+  { name:'Abuja PREMIUM metered', cityId:cityId['Abuja'], vehicleClassId:classId.PREMIUM, pricingType:'METERED', priority:10, calculation:metered(2200, 340, 30, 3500), conditions:{ serviceType:'IMMEDIATE' } },
+  { name:'Abuja SUV metered', cityId:cityId['Abuja'], vehicleClassId:classId.SUV, pricingType:'METERED', priority:10, calculation:metered(3000, 420, 35, 5000), conditions:{ serviceType:'IMMEDIATE' } },
+  { name:'Abuja LUXURY metered', cityId:cityId['Abuja'], vehicleClassId:classId.LUXURY, pricingType:'METERED', priority:10, calculation:metered(4500, 550, 45, 7000), conditions:{ serviceType:'IMMEDIATE' } },
+  { name:'Abuja BUS metered', cityId:cityId['Abuja'], vehicleClassId:classId.BUS, pricingType:'METERED', priority:10, calculation:metered(6000, 650, 50, 9000), conditions:{ serviceType:'IMMEDIATE' } },
+  { name:'Lagos CITY metered', cityId:cityId['Lagos'], vehicleClassId:classId.CITY, pricingType:'METERED', priority:10, calculation:metered(1800, 300, 30, 3000), conditions:{ serviceType:'IMMEDIATE' } },
+  { name:'Lagos PREMIUM metered', cityId:cityId['Lagos'], vehicleClassId:classId.PREMIUM, pricingType:'METERED', priority:10, calculation:metered(2500, 380, 35, 4000), conditions:{ serviceType:'IMMEDIATE' } },
+  { name:'Lagos SUV metered', cityId:cityId['Lagos'], vehicleClassId:classId.SUV, pricingType:'METERED', priority:10, calculation:metered(3300, 460, 40, 5500), conditions:{ serviceType:'IMMEDIATE' } },
+  { name:'Lagos LUXURY metered', cityId:cityId['Lagos'], vehicleClassId:classId.LUXURY, pricingType:'METERED', priority:10, calculation:metered(4800, 600, 50, 7500), conditions:{ serviceType:'IMMEDIATE' } },
+  { name:'Lagos BUS metered', cityId:cityId['Lagos'], vehicleClassId:classId.BUS, pricingType:'METERED', priority:10, calculation:metered(6500, 700, 55, 9500), conditions:{ serviceType:'IMMEDIATE' } },
+])
 console.log('DTS demo seed completed. All inserted records are explicitly marked as demo where supported.')
