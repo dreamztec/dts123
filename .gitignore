@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.netlify/*
+!.netlify/results.md
+.tanstack/
+src/routeTree.gen.ts
+package-lock.json
+.env
+.env.*
