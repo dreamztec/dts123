@@ -1,0 +1,32 @@
+import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { IdentityProvider } from '@/lib/identity-context'
+import { PwaRegister } from '@/components/PwaRegister'
+import '../styles.css'
+
+export const Route = createRootRoute({
+  head: () => ({
+    meta: [
+      { charSet: 'utf-8' },
+      { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+      { title: 'DTS — Premium Transportation & Managed Mobility Nigeria' },
+      { name: 'description', content: 'Dreamz Transportz Servicez provides premium rides, chauffeur, airport, corporate and managed mobility services in Abuja and Lagos.' },
+      { name: 'theme-color', content: '#0b0c0c' },
+      { property: 'og:title', content: 'DTS — Fast Ride' },
+      { property: 'og:description', content: 'Your dream destination... on time.' },
+      { property: 'og:type', content: 'website' },
+      { name: 'twitter:card', content: 'summary_large_image' },
+    ],
+    links: [
+      { rel: 'manifest', href: '/manifest.webmanifest' },
+      { rel: 'icon', href: '/icon.svg', type: 'image/svg+xml' },
+      { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+      { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
+      { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap' },
+    ],
+  }),
+  shellComponent: RootDocument,
+})
+
+function RootDocument({ children }: { children: React.ReactNode }) {
+  return <html lang="en"><head><HeadContent /></head><body><IdentityProvider>{children}<PwaRegister/></IdentityProvider><Scripts /></body></html>
+}

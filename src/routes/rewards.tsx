@@ -1,0 +1,1 @@
+import { createFileRoute } from '@tanstack/react-router'; import { PublicPage } from '@/components/PublicPage'; import { publicPages } from '@/lib/public-pages'; export const Route=createFileRoute('/rewards')({component:()=> <PublicPage {...publicPages.rewards}/>})

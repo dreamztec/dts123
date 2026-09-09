@@ -1,0 +1,12 @@
+{
+  "name": "Dreamz Transportz Servicez — Fast Ride",
+  "short_name": "DTS Fast Ride",
+  "description": "Premium Nigerian transportation and managed mobility.",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#0a0b0b",
+  "theme_color": "#0a0b0b",
+  "orientation": "portrait-primary",
+  "icons": [{"src":"/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}],
+  "shortcuts": [{"name":"Book a ride","url":"/app/book"},{"name":"Driver workspace","url":"/driver"}]
+}

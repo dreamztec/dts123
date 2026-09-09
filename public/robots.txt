@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /driver/
+Disallow: /fleet/
+Disallow: /corporate/
+Sitemap: https://dreamztransportz.com/sitemap.xml
