@@ -9,7 +9,7 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false)
   useEffect(() => {
     getUser().then((currentUser) => { setUser(currentUser ?? null); setReady(true) }).catch(() => setReady(true))
-    return onAuthChange((currentUser) => setUser(currentUser ?? null))
+    return onAuthChange((_event, currentUser) => { setUser(currentUser) })
   }, [])
   return <IdentityContext.Provider value={{ user, ready, logout: identityLogout }}>{children}</IdentityContext.Provider>
 }

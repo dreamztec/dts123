@@ -1,0 +1,1 @@
+ALTER TABLE "cities" ADD COLUMN "country" text DEFAULT 'Nigeria' NOT NULL;
