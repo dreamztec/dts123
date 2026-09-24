@@ -118,3 +118,34 @@ button { cursor:pointer; }
 .empty-state strong { font:700 12px "Manrope"; color:#4b4a45; }
 .empty-state p { margin:0; max-width:340px; font-size:10.5px; line-height:1.65; color:#8b8983; }
 .empty-state .button { margin-top:8px; }
+
+/* Places autocomplete + fare breakdown */
+.places-field { position:relative; }
+.places-list { position:absolute; top:100%; left:0; right:0; z-index:40; margin:6px 0 0; padding:6px; list-style:none; max-height:260px; overflow-y:auto; background:var(--paper); border:1px solid var(--line); border-radius:12px; box-shadow:0 10px 30px rgba(18,20,20,.10); }
+.places-list li + li { border-top:1px solid var(--line); }
+.places-list button { display:block; width:100%; padding:10px 12px; border:0; background:none; text-align:left; color:var(--ink); border-radius:8px; }
+.places-list button:hover, .places-list button:focus-visible { background:rgba(101,31,43,.07); }
+.places-list strong { display:block; font-size:.94rem; font-weight:600; }
+.places-list span { display:block; font-size:.8rem; color:var(--muted); margin-top:2px; }
+.places-hint { display:block; margin-top:6px; font-size:.78rem; color:var(--muted); }
+.fare-lines { list-style:none; margin:16px 0 0; padding:16px 0 0; border-top:1px solid var(--line); }
+.fare-lines li { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:7px 0; font-size:.9rem; }
+.fare-lines li span { display:flex; flex-direction:column; gap:2px; }
+.fare-lines li small { font-size:.75rem; color:var(--muted); }
+.fare-lines li strong { font-variant-numeric:tabular-nums; white-space:nowrap; }
+@media (max-width:640px) { .places-list { max-height:220px; } }
+
+/* My Trips booking cards */
+.trip-list { display:flex; flex-direction:column; gap:14px; }
+.trip-card { padding:18px 20px; background:#fff; border:1px solid var(--line); border-radius:14px; }
+.trip-card-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.trip-card-head strong { font:700 14px "Manrope"; letter-spacing:.04em; }
+.trip-status { padding:4px 10px; border-radius:999px; background:rgba(11,12,12,.06); color:var(--ink); font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
+.trip-status-confirmed { background:rgba(46,125,50,.12); color:#2e7d32; }
+.trip-status-cancelled { background:rgba(198,40,40,.10); color:#c62828; }
+.trip-route { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:14px; }
+.trip-route small { display:block; color:var(--muted); font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; }
+.trip-route span { display:block; margin-top:3px; font-size:.9rem; }
+.trip-meta { display:flex; flex-wrap:wrap; gap:8px 20px; align-items:center; margin-top:14px; padding-top:12px; border-top:1px solid var(--line); color:var(--muted); font-size:.8rem; }
+.trip-meta .trip-fare { margin-left:auto; color:var(--ink); font-weight:700; font-variant-numeric:tabular-nums; }
+@media (max-width:640px) { .trip-route { grid-template-columns:1fr; }.trip-meta .trip-fare { margin-left:0; } }
