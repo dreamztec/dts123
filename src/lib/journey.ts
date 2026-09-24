@@ -29,9 +29,15 @@ export type EstimateRequestInput = z.input<typeof estimateRequestSchema>
 export type EstimateRequest = z.output<typeof estimateRequestSchema>
 export type JourneyEndpoint = z.output<typeof journeyEndpointSchema>
 
-/** Booking creation accepts the same journey plus optional customer notes. */
+/** Booking creation accepts the same journey plus optional customer notes and rider details. */
 export const createBookingSchema = estimateRequestSchema.extend({
   specialInstructions: z.string().trim().max(500).optional(),
+  relationship: z.enum(['SELF', 'FRIEND', 'FAMILY', 'EMPLOYEE', 'GUEST', 'CLIENT']).default('SELF'),
+  passengerName: z.string().trim().min(2).max(120).optional(),
+  passengerPhone: z.string().trim().min(7).max(20).optional(),
+}).refine((value) => value.relationship === 'SELF' || Boolean(value.passengerName && value.passengerPhone), {
+  message: 'Passenger name and phone are required when booking for someone else',
+  path: ['passengerName'],
 })
 
 const REFERENCE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'

@@ -1,46 +1,170 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { CalendarClock, CarFront, MapPin, Plane, ShieldCheck, Siren, Users, Sparkles, WalletCards } from 'lucide-react'
+import { CalendarClock, CarFront, CircleCheck, Gauge, MapPin, ShieldCheck, ShieldAlert, Siren, Users, WalletCards, Building2 } from 'lucide-react'
 import { AppShell } from './AppShell'
 import { EmptyState } from './EmptyState'
+import { useApi } from '@/lib/api-client'
 
-export function CustomerDashboard() {
-  const [available, setAvailable] = useState(false)
-  const [locationState, setLocationState] = useState('Not included in matching')
-  function toggleAvailability() {
-    if (available) { setAvailable(false); setLocationState('Not included in matching'); return }
-    if (!navigator.geolocation) { setLocationState('Location is not supported on this device'); return }
-    setLocationState('Requesting location permission…')
-    navigator.geolocation.getCurrentPosition(() => { setAvailable(true); setLocationState('Permission granted · awaiting eligible zone and route lookup') },() => setLocationState('Location permission was not granted'),{enableHighAccuracy:true,maximumAge:15_000,timeout:10_000})
+const noData = '—'
+
+function addressOf(value: unknown): string {
+  if (!value || typeof value !== 'object') return '—'
+  const record = value as Record<string, unknown>
+  if (typeof record.label === 'string' && record.label) return record.label
+  return typeof record.address === 'string' && record.address ? record.address : 'Selected location'
+}
+
+/* ============================= DRIVER ============================= */
+
+type DriverMe = {
+  driver: { id:string; availabilityStatus:string; completedTrips:number; rating:string; safetyScore:string; driverLevelCode:string } | null
+  level: { name:string } | null
+  vehicle: { make:string; model:string; plateNumber:string } | null
+  assignments: Array<{ id:string; status:string; bookingReference:string|null; pickup:unknown; destination:unknown; offeredAt:string }>
+  currentTrip: { id:string; status:string; bookingReference:string|null } | null
+  completedTrips: Array<{ id:string; status:string; completedAt:string|null; bookingReference:string|null; destination:unknown }>
+  user: { fullName:string } | null
+  message?: string
+}
+
+const assignmentLabels: Record<string,string> = { OFFERED:'Offered to you', ACCEPTED:'Accepted', DECLINED:'Declined', EXPIRED:'Expired', CANCELLED:'Cancelled' }
+const tripStatusLabels: Record<string,string> = { DRIVER_ASSIGNED:'Chauffeur assigned', DRIVER_EN_ROUTE:'En route', DRIVER_ARRIVED:'Arrived', PASSENGER_ONBOARD:'Passenger onboard', IN_PROGRESS:'In progress' }
+
+export function DriverDashboard() {
+  const { data, loading, error } = useApi<DriverMe>('/api/driver/me')
+  const driver = data?.driver ?? null
+  const level = data?.level ?? null
+  const vehicle = data?.vehicle ?? null
+  const openAssignments = (data?.assignments ?? []).filter((row) => ['OFFERED','ACCEPTED'].includes(row.status))
+  const [busy, setBusy] = useState(false)
+
+  async function setAvailability(next:'available'|'offline') {
+    setBusy(true)
+    try {
+      await fetch('/api/driver/availability', { method:'POST', headers:{ 'Content-Type':'application/json' }, credentials:'same-origin', body: JSON.stringify({ status: next }) })
+      window.location.reload()
+    } finally { setBusy(false) }
   }
-  return <AppShell kind="customer" title="My mobility" subtitle="FASTRIDES · Your dream destination...on time.">
-    <div className="dashboard-hero"><section className="welcome-card"><p>Welcome</p><h2>Where can we take you today?</h2><p>Book now, schedule ahead or arrange a journey for someone else.</p><Link to="/app/book" className="button button-primary">Book a ride <ArrowRightIcon/></Link></section><section className="membership-summary"><p className="overline">Current membership</p><h3>Not subscribed yet</h3><p>Membership pricing is configured by FASTRIDES operations. Requests are recorded and processed once billing is connected.</p><div className="credit-row"><span>Ride credits<strong>0 available</strong></span><span>Wallet<strong>₦0.00</strong></span></div></section></div>
-    <div className="quick-grid">{[[CalendarClock,'Schedule ride','Plan ahead'],[Plane,'Airport transfer','Flight-ready flow'],[Users,'Book for someone','Family or guest'],[Sparkles,'Chauffeur service','By the hour']].map(([Icon,title,text]) => <Link to="/app/book" className="quick-card" key={String(title)}><Icon size={20}/><strong>{String(title)}</strong><small>{String(text)}</small></Link>)}</div>
-    <div className="content-grid"><section className="panel"><div className="panel-head"><h3>Upcoming &amp; recent</h3><Link to="/app/trips">View all</Link></div><EmptyState icon={CarFront} title="No trips yet." body="Booked and completed journeys appear here once you make your first booking." action={<Link className="button button-primary" to="/app/book">Book a ride</Link>}/></section><section className="availability-panel"><Users size={22}/><h3>Availability Mode</h3><p>Join controlled shared-ride matching at supported pickup points. Location is used only with your permission while active.</p><div className="toggle-row"><span>{available ? 'Available for matching' : 'Currently off'}</span><button className={`switch ${available ? 'on' : ''}`} onClick={toggleAvailability} aria-label="Toggle Availability Mode" /></div><div className="integration-state"><MapPin size={13}/>{locationState}</div></section></div>
+
+  const online = driver?.availabilityStatus === 'available'
+  return <AppShell kind="driver" title="Chauffeur workspace" subtitle="FASTRIDES · Your dream destination...on time.">
+    {error && <p className="notice" role="alert">{error}</p>}
+    {loading ? <p className="notice">Loading your workspace…</p> : !driver
+      ? <section className="panel"><EmptyState icon={CarFront} title="No chauffeur profile yet." body={data?.message ?? 'Registration and verification appear here once FASTRIDES operations onboard you.'} /></section>
+      : <>
+        <div className="dashboard-hero">
+          <section className="welcome-card"><p>{data?.user?.fullName}</p><h2>{online ? 'You are available.' : 'You are offline.'}</h2><p>{online ? 'FASTRIDES dispatch can assign eligible trips.' : 'Go online only when ready and assigned to an approved vehicle.'}</p>
+            <button className="button button-primary" disabled={busy} onClick={() => setAvailability(online ? 'offline' : 'available')}>{busy ? 'Updating…' : online ? 'Go offline' : 'Go online'}</button>
+          </section>
+          <section className="membership-summary"><p className="overline">Assigned vehicle</p>
+            <h3>{vehicle ? `${vehicle.make} ${vehicle.model}` : 'Not assigned yet'}</h3>
+            <p>{vehicle ? `Plate ${vehicle.plateNumber}` : 'Your assigned vehicle appears here once fleet operations assign you one.'}</p>
+            <div className="credit-row"><span>Completed trips<strong>{driver.completedTrips}</strong></span><span>Rating<strong>{Number(driver.rating) > 0 ? Number(driver.rating).toFixed(2) : noData}</strong></span><span>Level<strong>{level?.name ?? driver.driverLevelCode}</strong></span></div>
+          </section>
+        </div>
+        <div className="quick-grid">
+          <Link to="/driver/availability" className="quick-card"><Gauge size={20}/><strong>Availability</strong><small>{online ? 'Currently online' : 'Currently offline'}</small></Link>
+          <Link to="/driver/trips" className="quick-card"><CalendarClock size={20}/><strong>Trips</strong><small>Assignments and history</small></Link>
+          <Link to="/driver/current-trip" className="quick-card"><MapPin size={20}/><strong>Current trip</strong><small>{data?.currentTrip ? tripStatusLabels[data.currentTrip.status] ?? 'In progress' : 'No active assignment'}</small></Link>
+          <Link to="/driver/safety" className="quick-card"><Siren size={20}/><strong>Safety & SOS</strong><small>Escalation tools</small></Link>
+        </div>
+        <div className="content-grid" style={{ marginTop:20 }}>
+          <section className="panel"><div className="panel-head"><h3>Assignments</h3><Link to="/driver/trips">View all</Link></div>
+            {openAssignments.length === 0
+              ? <EmptyState icon={CarFront} title="No active assignment." body="Accepted assignments and their trip workflow appear here when dispatch offers you a trip." />
+              : openAssignments.map((row) => <div className="trip-row" key={row.id}><span className="trip-icon"><CalendarClock size={15}/></span><div><strong>{row.bookingReference ?? 'Booking'}</strong><small>{addressOf(row.pickup)} → {addressOf(row.destination)}</small></div><span>{assignmentLabels[row.status] ?? row.status}</span></div>)}
+          </section>
+          <section className="panel"><div className="panel-head"><h3>Current trip</h3><Link to="/driver/current-trip">Open</Link></div>
+            {data?.currentTrip
+              ? <div className="trip-row"><span className="trip-icon"><MapPin size={15}/></span><div><strong>{data.currentTrip.bookingReference ?? 'Trip'}</strong><small>{tripStatusLabels[data.currentTrip.status] ?? data.currentTrip.status}</small></div><span>{data.currentTrip.status}</span></div>
+              : <EmptyState icon={MapPin} title="No trip in progress." body="Location updates start only from an authorised active trip state." />}
+          </section>
+        </div>
+      </>}
   </AppShell>
 }
 
-function ArrowRightIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg> }
+/* ============================= SHARED OVERVIEW METRICS ============================= */
 
-export function DriverDashboard() {
-  const [online, setOnline] = useState(false)
-  const [locationState, setLocationState] = useState('Location off')
-  function requestLocation() {
-    if (!navigator.geolocation) { setLocationState('Location unavailable'); return }
-    setLocationState('Requesting permission…')
-    navigator.geolocation.getCurrentPosition(() => setLocationState('Permission granted · updates wait for an authorised active trip'),() => setLocationState('Permission not granted'),{enableHighAccuracy:true,maximumAge:5_000,timeout:10_000})
-  }
-  return <AppShell kind="driver" title="Chauffeur workspace" subtitle="Simple, safe trip operations"><div className="dashboard-hero"><section className="welcome-card"><p>Current status</p><h2>{online ? 'You are available.' : 'You are offline.'}</h2><p>{online ? 'FASTRIDES dispatch can assign eligible trips.' : 'Go online only when ready and assigned to an approved vehicle.'}</p><button className="button button-primary" onClick={() => setOnline(!online)}>{online ? 'Go offline' : 'Go online'}</button></section><section className="membership-summary"><p className="overline">Assigned vehicle</p><h3>Not assigned yet</h3><p>Your assigned vehicle appears here once fleet operations assign you one.</p><div className="credit-row"><span>Today’s trips<strong>0</strong></span><span>Safety score<strong>—</strong></span></div></section></div><div className="quick-grid">{[[CalendarClock,'Next trip','No upcoming assignments'],[MapPin,'Navigate','Map not connected'],[ShieldCheck,'Passenger check','Verify before start'],[Siren,'SOS & support','Escalation tools']].map(([Icon,title,text]) => <article className="quick-card" key={String(title)}><Icon size={20}/><strong>{String(title)}</strong><small>{String(text)}</small></article>)}</div><section className="panel"><div className="panel-head"><h3>Assigned trip workflow</h3><button onClick={requestLocation}>Enable trip location</button></div><div className="trip-row"><span className="trip-icon"><MapPin size={16}/></span><div><strong>Location permission</strong><small>{locationState}</small></div><span>Private</span></div><EmptyState icon={CarFront} title="No active assignment." body="Accepted assignments and their trip workflow appear here when dispatch offers you a trip."/></section></AppShell>
+type AdminOverview = {
+  metrics: { customers:number; drivers:number; vehicles:number; bookings:number; activeBookings:number; corporates:number; openIncidents:number; unresolvedFeedback:number; notificationsLast24h:number }
 }
+
+/* ============================= FLEET ============================= */
 
 export function FleetDashboard() {
-  return <AppShell kind="fleet" title="Fleet management" subtitle="Vehicles, chauffeurs, costs and compliance"><div className="kpi-grid">{[[CarFront,'Vehicles','0'],[CarFront,'Available','0'],[CalendarClock,'Service due','0'],[Users,'Chauffeurs','0']].map(([Icon,label,value]) => <article className="kpi-card" key={String(label)}><span>{String(label)}<Icon size={17}/></span><strong>{String(value)}</strong><small>Live counts from fleet records</small></article>)}</div><div className="content-grid"><section className="panel"><div className="panel-head"><h3>Live fleet map</h3><button>Map settings</button></div><div className="ops-map"><div className="map-empty"><MapPin size={24}/><strong>Map integration not connected</strong><small>Configure a map provider to view authorised fleet locations. No position data is fabricated.</small></div></div></section><section className="panel"><div className="panel-head"><h3>Fleet attention</h3></div><EmptyState icon={CarFront} title="No vehicles have been added." body="Vehicle records, compliance dates and service schedules appear once vehicles are registered."/></section></div><section className="panel table-panel" style={{marginTop:20}}><div className="panel-head"><h3>Managed vehicles</h3><button>Add vehicle</button></div><table className="data-table"><thead><tr><th>Vehicle</th><th>Class</th><th>Fuel</th><th>Chauffeur</th><th>Status</th></tr></thead><tbody><tr><td colSpan={5}><EmptyState icon={CarFront} title="No vehicles have been added." body={false}/></td></tr></tbody></table></section></AppShell>
+  const { data, loading, error } = useApi<AdminOverview>('/api/admin/overview')
+  const metrics = data?.metrics
+  return <AppShell kind="fleet" title="Fleet management" subtitle="Vehicles, chauffeurs, costs and compliance">
+    {error && <p className="notice" role="alert">{error}</p>}
+    <div className="kpi-grid">
+      {([['Vehicles',CarFront,metrics ? String(metrics.vehicles) : null],['Available',Gauge,metrics ? String(Math.max(metrics.vehicles - metrics.activeBookings, 0)) : null],['Active bookings',CalendarClock,metrics ? String(metrics.activeBookings) : null],['Chauffeurs',Users,metrics ? String(metrics.drivers) : null]] as Array<[string, typeof CarFront, string|null]>).map(([label,Icon,value]) => <article className="kpi-card" key={label}><span>{label}<Icon size={17}/></span><strong>{value ?? noData}</strong><small>{value == null ? 'Counts load from the database' : 'Live count from fleet records'}</small></article>)}
+    </div>
+    {loading && <p className="notice">Loading fleet records…</p>}
+    <div className="content-grid">
+      <section className="panel"><div className="panel-head"><h3>Fleet map</h3></div>
+        <div className="ops-map"><div className="map-empty"><MapPin size={24}/><strong>Live map not yet available</strong><small>Authorised vehicle locations appear once telemetry is connected. No position data is invented.</small></div></div>
+      </section>
+      <section className="panel"><div className="panel-head"><h3>Register & compliance</h3></div>
+        <EmptyState icon={CarFront} title="Operational records live in the database." body="Vehicle, chauffeur and maintenance records are managed through the operations database and appear here as they are recorded." />
+      </section>
+    </div>
+    <div className="quick-grid" style={{ marginTop:20 }}>
+      <Link to="/fleet/vehicles" className="quick-card"><CarFront size={20}/><strong>Vehicles</strong><small>Classes, assignments, compliance</small></Link>
+      <Link to="/fleet/drivers" className="quick-card"><Users size={20}/><strong>Chauffeurs</strong><small>Verification and availability</small></Link>
+      <Link to="/fleet/maintenance" className="quick-card"><Gauge size={20}/><strong>Maintenance</strong><small>Service and document records</small></Link>
+      <Link to="/fleet/reports" className="quick-card"><CalendarClock size={20}/><strong>Reports</strong><small>Operational reporting</small></Link>
+    </div>
+  </AppShell>
 }
+
+/* ============================= CORPORATE ============================= */
 
 export function CorporateDashboard() {
-  return <AppShell kind="corporate" title="Corporate mobility" subtitle="Policies, riders, approvals and billing"><div className="kpi-grid">{[[Users,'Active riders','0'],[CalendarClock,'Trips this month','0'],[WalletCards,'Invoices due','0'],[Users,'Departments','0']].map(([Icon,label,value]) => <article className="kpi-card" key={String(label)}><span>{String(label)}<Icon size={17}/></span><strong>{String(value)}</strong><small>Counts come from account records</small></article>)}</div><div className="content-grid"><section className="panel table-panel"><div className="panel-head"><h3>Booking approvals</h3><button>Manage policy</button></div><table className="data-table"><thead><tr><th>Rider</th><th>Journey</th><th>Class</th><th>Policy</th><th>Status</th></tr></thead><tbody><tr><td colSpan={5}><EmptyState icon={Users} title="No approvals pending." body={false}/></td></tr></tbody></table></section><section className="panel"><div className="panel-head"><h3>Account controls</h3></div>{['Employee limits','Department budgets','Vehicle class rules','Approval levels'].map((item) => <div className="trip-row" key={item}><span className="trip-icon"><Users size={15}/></span><div><strong>{item}</strong><small>Configurable by company admin</small></div><span>Manage</span></div>)}</section></div></AppShell>
+  const { data, loading, error } = useApi<AdminOverview>('/api/admin/overview')
+  const metrics = data?.metrics
+  return <AppShell kind="corporate" title="Corporate mobility" subtitle="Policies, riders, approvals and billing">
+    {error && <p className="notice" role="alert">{error}</p>}
+    <div className="kpi-grid">
+      {([['Corporate accounts',Users,metrics ? String(metrics.corporates) : null],['Bookings',CalendarClock,metrics ? String(metrics.bookings) : null],['Active trips',CarFront,metrics ? String(metrics.activeBookings) : null],['Open incidents',ShieldAlert,metrics ? String(metrics.openIncidents) : null]] as Array<[string, typeof CarFront, string|null]>).map(([label,Icon,value]) => <article className="kpi-card" key={label}><span>{label}<Icon size={17}/></span><strong>{value ?? noData}</strong><small>{value == null ? 'Counts load from the database' : 'Live count from account records'}</small></article>)}
+    </div>
+    {loading && <p className="notice">Loading account records…</p>}
+    <section className="panel table-panel"><div className="panel-head"><h3>Booking approvals</h3><Link to="/corporate/policies">Manage policies</Link></div>
+      <table className="data-table"><thead><tr><th>Rider</th><th>Journey</th><th>Class</th><th>Policy</th><th>Status</th></tr></thead><tbody><tr><td colSpan={5}><EmptyState icon={Users} title="No approvals pending." body="Requests appear here when riders book under an approval policy."/></td></tr></tbody></table>
+    </section>
+    <div className="quick-grid" style={{ marginTop:20 }}>
+      <Link to="/corporate/riders" className="quick-card"><Users size={20}/><strong>Riders</strong><small>Employees, departments, limits</small></Link>
+      <Link to="/corporate/bookings" className="quick-card"><CalendarClock size={20}/><strong>Bookings</strong><small>Business journeys and approvals</small></Link>
+      <Link to="/corporate/policies" className="quick-card"><ShieldCheck size={20}/><strong>Policies</strong><small>Spend and class rules</small></Link>
+      <Link to="/corporate/invoices" className="quick-card"><WalletCards size={20}/><strong>Invoices</strong><small>Statements and billing</small></Link>
+    </div>
+  </AppShell>
 }
 
+/* ============================= ADMIN ============================= */
+
 export function AdminDashboard() {
-  return <AppShell kind="admin" title="FASTRIDES operations control" subtitle="Authorised administration and live coordination"><div className="kpi-grid">{[[Users,'Customers','0'],[CarFront,'Active trips','0'],[ShieldCheck,'Open incidents','0'],[CarFront,'Vehicles','0']].map(([Icon,label,value]) => <article className="kpi-card" key={String(label)}><span>{String(label)}<Icon size={17}/></span><strong>{String(value)}</strong><small>Live counts from the database</small></article>)}</div><div className="content-grid"><section className="panel"><div className="panel-head"><h3>Live operations centre</h3><Link to="/admin/live-operations">Open full view</Link></div><div className="ops-map"><div className="map-empty"><MapPin size={24}/><strong>Fleet location unavailable</strong><small>No fabricated GPS is shown. Connect a map provider and authorised location stream.</small></div></div></section><section className="panel"><div className="panel-head"><h3>Operations queue</h3></div>{['Incoming requests','Scheduled airport trips','Shared matches','SOS alerts'].map((item,index) => <div className="trip-row" key={item}><span className="trip-icon">{index === 3 ? <Siren size={15}/> : <CalendarClock size={15}/>}</span><div><strong>{item}</strong><small>Operational review queue</small></div><span>0</span></div>)}</section></div></AppShell>
+  const { data, loading, error } = useApi<AdminOverview>('/api/admin/overview')
+  const metrics = data?.metrics
+  return <AppShell kind="admin" title="FASTRIDES operations" subtitle="Live figures straight from the operations database">
+    {error && <p className="notice" role="alert">{error}</p>}
+    <div className="kpi-grid">
+      {([['Customers',Users,metrics?.customers],['Active trips',CarFront,metrics?.activeBookings],['Open incidents',ShieldAlert,metrics?.openIncidents],['Vehicles',CarFront,metrics?.vehicles]] as Array<[string, typeof CarFront, number|undefined]>).map(([label,Icon,value]) => <article className="kpi-card" key={label}><span>{label}<Icon size={17}/></span><strong>{value == null ? noData : String(value)}</strong><small>Live count from the database</small></article>)}
+    </div>
+    {loading && <p className="notice">Loading operations metrics…</p>}
+    <div className="content-grid">
+      <section className="panel"><div className="panel-head"><h3>Live operations</h3><Link to="/admin/live-operations">Open full view</Link></div>
+        <div className="ops-map"><div className="map-empty"><MapPin size={24}/><strong>Fleet location unavailable</strong><small>No fabricated GPS is shown. Authorised location streaming appears once telemetry is connected.</small></div></div>
+      </section>
+      <section className="panel"><div className="panel-head"><h3>Operations queue</h3></div>
+        {([['Bookings recorded',CalendarClock,metrics ? String(metrics.bookings) : null],['Active journeys',CarFront,metrics ? String(metrics.activeBookings) : null],['Open incidents',Siren,metrics ? String(metrics.openIncidents) : null],['Unresolved feedback',CircleCheck,metrics ? String(metrics.unresolvedFeedback) : null]] as Array<[string, typeof CarFront, string|null]>).map(([label,Icon,value]) => <div className="trip-row" key={label}><span className="trip-icon"><Icon size={15}/></span><div><strong>{label}</strong><small>From live records</small></div><span>{value ?? noData}</span></div>)}
+      </section>
+    </div>
+    <div className="quick-grid" style={{ marginTop:20 }}>
+      <Link to="/admin/customers" className="quick-card"><Users size={20}/><strong>Customers</strong><small>Profiles and support</small></Link>
+      <Link to="/admin/vehicles" className="quick-card"><CarFront size={20}/><strong>Fleet</strong><small>Vehicles and compliance</small></Link>
+      <Link to="/admin/corporates" className="quick-card"><Building2 size={20}/><strong>Corporates</strong><small>Contracts and credit</small></Link>
+      <Link to="/admin/incidents" className="quick-card"><ShieldAlert size={20}/><strong>Safety</strong><small>Incidents and SOS review</small></Link>
+    </div>
+  </AppShell>
 }

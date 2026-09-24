@@ -14,10 +14,13 @@ export const Route = createRootRoute({
       { property: 'og:title', content: 'FASTRIDES — Your dream destination...on time.' },
       { property: 'og:description', content: 'Your dream destination...on time. Operated by Dreamz Transportz Servicez (DTS).' },
       { property: 'og:type', content: 'website' },
+      { property: 'og:image', content: '/logo-512.png' },
+      { property: 'og:site_name', content: 'FASTRIDES' },
       { name: 'twitter:card', content: 'summary_large_image' },
     ],
     links: [
       { rel: 'manifest', href: '/manifest.webmanifest' },
+      { rel: 'icon', href: '/favicon.ico', sizes: 'any' },
       { rel: 'icon', href: '/favicon-64.png', type: 'image/png', sizes: '64x64' },
       { rel: 'icon', href: '/icon.svg', type: 'image/svg+xml' },
       { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' },

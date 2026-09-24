@@ -2,10 +2,10 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useApi } from '@/lib/api-client'
 import { AppShell } from '@/components/AppShell'
 import { EmptyState } from '@/components/EmptyState'
-import { CarFront } from 'lucide-react'
+import { CarFront, CircleCheck } from 'lucide-react'
 import { formatNaira } from '@/lib/estimate-client'
 
-type BookingRow = { id:string; reference:string; status:string; tripType:string; scheduledAt:string|null; pickup:{ label?:string }; destination:{ label?:string }; passengerCount:number; estimate:{ price:number|null; connected:boolean }; cityName:string|null; vehicleClassName:string|null; createdAt:string }
+type BookingRow = { id:string; reference:string; status:string; tripType:string; scheduledAt:string|null; pickup:{ label?:string; address?:string }; destination:{ label?:string; address?:string }; passengerCount:number; estimate:{ price:number|null; connected:boolean }; cityName:string|null; vehicleClassName:string|null; createdAt:string }
 type Payload = { bookings:BookingRow[]; total:number }
 
 export const Route = createFileRoute('/app/trips')({ component: MyTripsWorkspace })
@@ -51,7 +51,16 @@ function BookingCard({ booking }: { booking: BookingRow }) {
 function MyTripsWorkspace() {
   const { data, loading, error } = useApi<Payload>('/api/bookings')
   const bookings = data?.bookings ?? []
+  let confirmedReference: string | null = null
+  try {
+    const stored = sessionStorage.getItem('fastrides.lastBooking')
+    if (stored) {
+      const parsed = JSON.parse(stored) as { reference?:string; status?:string }
+      if (parsed.reference && (!parsed.status || parsed.status === 'CONFIRMED')) confirmedReference = parsed.reference
+    }
+  } catch { /* ignore malformed stored confirmation */ }
   return <AppShell kind="customer" title="My trips" subtitle="Confirmed journeys, measured by road route and priced from live configuration.">
+    {confirmedReference && <div className="confirm-banner" role="status"><CircleCheck size={18}/> <div><strong>Ride confirmed — {confirmedReference}</strong><p>Your journey is booked. A chauffeur is assigned closer to pickup time.</p></div></div>}
     {error && <p className="notice" role="alert">{error}</p>}
     {loading ? <p className="notice">Loading trips…</p> : bookings.length === 0
       ? <section className="panel"><EmptyState icon={CarFront} title="No trips yet." body="Plan your first journey and the fare will be calculated from the real road route." action={<Link className="button button-primary" to="/app/book">Book a ride</Link>}/></section>

@@ -23,6 +23,9 @@ export type EstimateRequest = {
   passengerCount: number
   scheduledAt?: string
   specialInstructions?: string
+  relationship?: 'SELF' | 'FRIEND' | 'FAMILY' | 'EMPLOYEE' | 'GUEST' | 'CLIENT'
+  passengerName?: string
+  passengerPhone?: string
 }
 
 /**

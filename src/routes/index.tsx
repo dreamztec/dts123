@@ -27,7 +27,7 @@ const assurances = [
 ]
 
 const serviceCards = [
-  { icon: Clock3, title: 'Fast Ride', text: 'Request an immediate ride from available, managed FASTRIDES capacity.' },
+  { icon: Clock3, title: 'On-demand rides', text: 'Request an immediate ride from available, managed FASTRIDES capacity.' },
   { icon: CalendarClock, title: 'Scheduled journeys', text: 'Reserve ahead for meetings, recurring routes and important days.' },
   { icon: Plane, title: 'Airport transfers', text: 'Purpose-built arrival and departure bookings with luggage details.' },
   { icon: Building2, title: 'Corporate mobility', text: 'Policies, approvals, reporting and invoicing for organised teams.' },
@@ -102,7 +102,7 @@ function HomePage() {
               <div className="membership-top"><span>{plan.short}</span>{index === 2 && <b>Most considered</b>}</div>
               <h3>{plan.name}</h3><p>{plan.summary}</p>
               <ul>{plan.highlights.map((benefit) => <li key={benefit}><Check size={15} />{benefit}</li>)}</ul>
-              <p className="config-note">Pricing and exact benefits are configured by FASTRIDES operations.</p>
+              <p className="config-note">Full plan benefits are on the membership page. Pricing is confirmed there.</p>
               <Link to="/membership" className="text-link">Explore membership <ArrowRight size={15} /></Link>
             </article>)}
           </div>
