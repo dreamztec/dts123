@@ -2,7 +2,7 @@ import type { Config } from '@netlify/functions'
 import { and, desc, eq, ne } from 'drizzle-orm'
 import { getUser } from '@netlify/identity'
 import { db } from '../../db/index.js'
-import { bookingEvents, bookings, cities, users, vehicleClasses } from '../../db/schema.js'
+import { bookingEvents, bookingPassengers, bookings, cities, notifications, users, vehicleClasses } from '../../db/schema.js'
 import { createBookingSchema, type BookingSummary } from '../../src/lib/journey.js'
 import { generateBookingReference } from '../../src/lib/booking-domain'
 import { audit } from './_lib/api.mts'
@@ -83,7 +83,7 @@ export default async (request: Request) => {
       cityId: city.id,
       vehicleClassId: vehicleClass.id,
       serviceType: input.serviceType,
-      bookingRelationship: 'SELF',
+      bookingRelationship: input.relationship ?? 'SELF',
       tripType: 'IMMEDIATE',
       status: 'CONFIRMED',
       pickup: pickupPayload,
@@ -104,7 +104,17 @@ export default async (request: Request) => {
     }).returning()
 
     await db.insert(bookingEvents).values({ bookingId: booking.id, fromStatus: null, toStatus: 'CONFIRMED', actorId: appUser.id, note: 'Instant journey confirmed with server-measured route' })
-    await audit({ actorId: appUser.id, action: 'journey.create', targetType: 'booking', targetId: booking.id, after: { reference, status: 'CONFIRMED' }, request })
+    if (input.relationship !== 'SELF' && input.passengerName && input.passengerPhone) {
+      await db.insert(bookingPassengers).values({ bookingId: booking.id, fullName: input.passengerName, phone: input.passengerPhone, isBooker: false, specialInstructions: input.specialInstructions ?? null })
+      await db.insert(notifications).values({
+        userId: appUser.id, channel: 'IN_APP', templateKey: 'booking.for_someone_else',
+        subject: `Ride booked for ${input.passengerName}`,
+        content: { reference, passenger: input.passengerName, note: 'The passenger can be notified by SMS or WhatsApp once a messaging provider is connected. The trip reference above identifies this journey.' },
+      })
+    } else {
+      await db.insert(bookingPassengers).values({ bookingId: booking.id, userId: appUser.id, fullName: appUser.fullName, phone: appUser.phone ?? '', email: appUser.email, isBooker: true, specialInstructions: input.specialInstructions ?? null })
+    }
+    await audit({ actorId: appUser.id, action: 'journey.create', targetType: 'booking', targetId: booking.id, after: { reference, status: 'CONFIRMED', relationship: input.relationship ?? 'SELF' }, request })
 
     const summary: BookingSummary = {
       reference: booking.reference,
